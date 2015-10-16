@@ -8,8 +8,11 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.media.AudioManager;
@@ -93,6 +96,10 @@ public class CannonView extends SurfaceView
    private Paint blockerPaint; // Paint used to draw the blocker
    private Paint targetPaint; // Paint used to draw the target
    private Paint backgroundPaint; // Paint used to clear the drawing area
+   private Paint linePaint; // Paint used to draw the cannon path
+
+   private Bitmap cannonBitmap;     // bitmap for cannon
+   private Bitmap cannonballBitmap; // bitmap for cannonball
 
    // public constructor
    public CannonView(Context context, AttributeSet attrs)
@@ -136,7 +143,8 @@ public class CannonView extends SurfaceView
       cannonballPaint = new Paint();
       blockerPaint = new Paint(); 
       targetPaint = new Paint(); 
-      backgroundPaint = new Paint(); 
+      backgroundPaint = new Paint();
+      linePaint = new Paint();
    } // end CannonView constructor
 
    // called by surfaceChanged when the size of the SurfaceView changes,
@@ -183,6 +191,17 @@ public class CannonView extends SurfaceView
       blockerPaint.setStrokeWidth(lineWidth); // set line thickness      
       targetPaint.setStrokeWidth(lineWidth); // set line thickness       
       backgroundPaint.setColor(Color.WHITE); // set background color
+
+      linePaint.setColor(Color.RED);
+      linePaint.setStrokeWidth(lineWidth / 4);
+      linePaint.setPathEffect(new DashPathEffect(new float[]{10, 20}, 0));
+
+      int cannonHeight = (int) (cannonLength / 4) * 3;
+
+      // create cannon bitmap
+      cannonBitmap = createScaledBitmap(cannonHeight, cannonLength, R.drawable.cannon);
+      // create cannonball bitmap
+      cannonballBitmap = createScaledBitmap(cannonballRadius*2, cannonballRadius*2, R.drawable.cannonball);
 
       newGame(); // set up and start a new game
    } // end method onSizeChanged
@@ -390,17 +409,26 @@ public class CannonView extends SurfaceView
          R.string.time_remaining_format, timeLeft), 30, 50, textPaint);
 
       // if a cannonball is currently on the screen, draw it
-      if (cannonballOnScreen)
-         canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius,
-            cannonballPaint);
+      if (cannonballOnScreen) {
+         //canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius,
+         //        cannonballPaint);
+         // draw cannonball using bitmap
+         canvas.drawBitmap(cannonballBitmap, cannonball.x, cannonball.y - cannonballRadius, null);
 
+         // also draw the cannonball line path
+         canvas.drawLine(barrelEnd.x, barrelEnd.y, cannonball.x, cannonball.y,
+                 linePaint);
+      }
       // draw the cannon barrel
-      canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
-         cannonPaint);
+      //canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
+      //        cannonPaint);
 
       // draw the cannon base
-      canvas.drawCircle(0, (int) screenHeight / 2,
-         (int) cannonBaseRadius, cannonPaint);
+      //canvas.drawCircle(0, (int) screenHeight / 2,
+      //        (int) cannonBaseRadius, cannonPaint);
+
+      // draw the cannon bitmap
+      canvas.drawBitmap(cannonBitmap, 0, screenHeight / 2 - (cannonBitmap.getHeight()/2), null);
 
       // draw the blocker
       canvas.drawLine(blocker.start.x, blocker.start.y, blocker.end.x,
@@ -553,7 +581,18 @@ public class CannonView extends SurfaceView
 
       return true;
    } // end method onTouchEvent
-   
+
+   //
+   // helper function to create the scaled image from the drawable resources
+   //
+   private Bitmap createScaledBitmap(int width, int height, int resID) {
+      Bitmap tempBitmap = BitmapFactory.decodeResource(getResources(), resID);
+
+      // scaled it to the proper size
+      Bitmap scaledBitmap = Bitmap.createScaledBitmap(tempBitmap, width, width, true);
+      return scaledBitmap;
+   }
+
    // Thread subclass to control the game loop
    private class CannonThread extends Thread
    {
