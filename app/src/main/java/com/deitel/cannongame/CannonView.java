@@ -79,6 +79,10 @@ public class CannonView extends SurfaceView
    private static final int TARGET_SOUND_ID = 0;
    private static final int CANNON_SOUND_ID = 1;
    private static final int BLOCKER_SOUND_ID = 2;
+   private static final int APPLAUSE_SOUND_ID = 3;
+   private static final int BOING_SOUND_ID = 4;
+   private static final int BOUNCE_SOUND_ID = 5;
+
    private SoundPool soundPool; // plays sound effects
    private SparseIntArray soundMap; // maps IDs to SoundPool
 
@@ -111,13 +115,19 @@ public class CannonView extends SurfaceView
       soundPool = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
 
       // create Map of sounds and pre-load sounds
-      soundMap = new SparseIntArray(3); // create new HashMap
+      soundMap = new SparseIntArray(6); // create new HashMap
       soundMap.put(TARGET_SOUND_ID,
          soundPool.load(context, R.raw.target_hit, 1));
       soundMap.put(CANNON_SOUND_ID,
          soundPool.load(context, R.raw.cannon_fire, 1));
       soundMap.put(BLOCKER_SOUND_ID,
          soundPool.load(context, R.raw.blocker_hit, 1));
+      soundMap.put(APPLAUSE_SOUND_ID,
+              soundPool.load(context, R.raw.applause, 1));
+      soundMap.put(BOING_SOUND_ID,
+              soundPool.load(context, R.raw.boing, 1));
+      soundMap.put(BOUNCE_SOUND_ID,
+              soundPool.load(context, R.raw.bounce, 1));
 
       // construct Paints for drawing text, cannonball, cannon,
       // blocker and target; these are configured in method onSizeChanged
@@ -268,6 +278,10 @@ public class CannonView extends SurfaceView
                {
                   cannonThread.setRunning(false); // terminate thread
                   showGameOverDialog(R.string.win); // show winning dialog
+                  // play applause sound
+                  soundPool.play(soundMap.get(APPLAUSE_SOUND_ID), 1,
+                          1, 1, 0, 1f);
+
                   gameOver = true; 
                } 
             }
@@ -285,9 +299,13 @@ public class CannonView extends SurfaceView
       target.end.y += targetUpdate;
 
       // if the blocker hit the top or bottom, reverse direction
-      if (blocker.start.y < 0 || blocker.end.y > screenHeight)
+      if (blocker.start.y < 0 || blocker.end.y > screenHeight) {
          blockerVelocity *= -1;
 
+         // play bounce sound
+         soundPool.play(soundMap.get(BOUNCE_SOUND_ID), 1,
+                 1, 1, 0, 1f);
+      }
       // if the target hit the top or bottom, reverse direction
       if (target.start.y < 0 || target.end.y > screenHeight)
          targetVelocity *= -1;
@@ -301,6 +319,10 @@ public class CannonView extends SurfaceView
          gameOver = true; // the game is over
          cannonThread.setRunning(false); // terminate thread
          showGameOverDialog(R.string.lose); // show the losing dialog
+
+         // play boing sound
+         soundPool.play(soundMap.get(BOING_SOUND_ID), 1,
+                 1, 1, 0, 1f);
       } 
    } // end method updatePositions
 
