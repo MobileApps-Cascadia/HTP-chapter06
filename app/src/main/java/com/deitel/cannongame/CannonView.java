@@ -15,6 +15,7 @@ import android.graphics.Point;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseIntArray;
@@ -22,9 +23,12 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+
+
 public class CannonView extends SurfaceView 
    implements SurfaceHolder.Callback
 {
+   private int trackerctr = 0;
    private static final String TAG = "CannonView"; // for logging errors
 
    private CannonThread cannonThread; // controls the game loop
@@ -56,7 +60,15 @@ public class CannonView extends SurfaceView
    private double pieceLength; // length of a target piece
    private int targetEnd; // target bottom's distance from top
    private int initialTargetVelocity; // initial target speed multiplier
-   private float targetVelocity; // target speed multiplier 
+   private float targetVelocity; // target speed multiplier
+
+   private Line[] tracker; // dash lines to track the cannon ball
+   private int trackerLength = 50; // length of a dash
+   private int trackerGap = 10;
+   private int lastx;
+   private int lasty;
+   private int initialTrackerVelocity; // initial target speed multiplier
+   private float trackerVelocity; // target speed multiplier
 
    private int lineWidth; // width of the target and blocker
    private boolean[] hitStates; // is each target piece hit?
@@ -79,6 +91,7 @@ public class CannonView extends SurfaceView
    private static final int TARGET_SOUND_ID = 0;
    private static final int CANNON_SOUND_ID = 1;
    private static final int BLOCKER_SOUND_ID = 2;
+   private static final int BLOCKERTOUCH_SOUND_ID = 3;
    private SoundPool soundPool; // plays sound effects
    private SparseIntArray soundMap; // maps IDs to SoundPool
 
@@ -89,7 +102,7 @@ public class CannonView extends SurfaceView
    private Paint blockerPaint; // Paint used to draw the blocker
    private Paint targetPaint; // Paint used to draw the target
    private Paint backgroundPaint; // Paint used to clear the drawing area
-
+   private Paint trackerPaint;
    // public constructor
    public CannonView(Context context, AttributeSet attrs)
    {
@@ -103,21 +116,27 @@ public class CannonView extends SurfaceView
       blocker = new Line(); // create the blocker as a Line
       target = new Line(); // create the target as a Line
       cannonball = new Point(); // create the cannonball as a Point
+      tracker = new Line[200]; //
+      for (int i = 0; i < tracker.length; ++i) {
+         tracker[i] = new Line();
+      }
 
       // initialize hitStates as a boolean array
       hitStates = new boolean[TARGET_PIECES];
 
-      // initialize SoundPool to play the app's three sound effects
-      soundPool = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
+      // initialize SoundPool to play the app's four sound effects
+      soundPool = new SoundPool (1, AudioManager.STREAM_MUSIC, 0);
 
       // create Map of sounds and pre-load sounds
-      soundMap = new SparseIntArray(3); // create new HashMap
+      soundMap = new SparseIntArray(4); // create new HashMap
       soundMap.put(TARGET_SOUND_ID,
          soundPool.load(context, R.raw.target_hit, 1));
       soundMap.put(CANNON_SOUND_ID,
          soundPool.load(context, R.raw.cannon_fire, 1));
       soundMap.put(BLOCKER_SOUND_ID,
          soundPool.load(context, R.raw.blocker_hit, 1));
+      soundMap.put(BLOCKERTOUCH_SOUND_ID,
+              soundPool.load(context, R.raw.bounce, 1));
 
       // construct Paints for drawing text, cannonball, cannon,
       // blocker and target; these are configured in method onSizeChanged
@@ -126,7 +145,8 @@ public class CannonView extends SurfaceView
       cannonballPaint = new Paint();
       blockerPaint = new Paint(); 
       targetPaint = new Paint(); 
-      backgroundPaint = new Paint(); 
+      backgroundPaint = new Paint();
+      trackerPaint = new Paint();
    } // end CannonView constructor
 
    // called by surfaceChanged when the size of the SurfaceView changes,
@@ -173,6 +193,7 @@ public class CannonView extends SurfaceView
       blockerPaint.setStrokeWidth(lineWidth); // set line thickness      
       targetPaint.setStrokeWidth(lineWidth); // set line thickness       
       backgroundPaint.setColor(Color.WHITE); // set background color
+      trackerPaint.setStrokeWidth((float)(lineWidth * 0.4));
 
       newGame(); // set up and start a new game
    } // end method onSizeChanged
@@ -214,8 +235,25 @@ public class CannonView extends SurfaceView
       if (cannonballOnScreen) // if there is currently a shot fired
       {
          // update cannonball position
+         double angle = Math.atan2(interval * cannonballVelocityY, interval * cannonballVelocityX);
          cannonball.x += interval * cannonballVelocityX;
          cannonball.y += interval * cannonballVelocityY;
+
+         if (Math.pow(cannonball.x - tracker[trackerctr].start.x, 2.0) + Math.pow(cannonball.y - tracker[trackerctr].start.y, 2.0) < Math.pow(trackerLength, 2.0)) {
+            tracker[trackerctr].end.x += interval * cannonballVelocityX;
+            tracker[trackerctr].end.y += interval * cannonballVelocityY;
+         }
+         else {
+            lastx = tracker[trackerctr].end.x;
+            lasty = tracker[trackerctr].end.y;
+            if (trackerctr < tracker.length - 1) {
+                trackerctr++;
+                tracker[trackerctr].start.x = (int) (lastx + trackerGap * Math.cos(angle));
+                tracker[trackerctr].start.y = (int) (lasty + trackerGap * Math.sin(angle));
+                tracker[trackerctr].end.x = (int) (tracker[trackerctr].start.x + interval * cannonballVelocityX);
+                tracker[trackerctr].end.y = (int) (tracker[trackerctr].start.y + interval * cannonballVelocityY);
+            }
+         }
 
          // check for collision with blocker
          if (cannonball.x + cannonballRadius > blockerDistance && 
@@ -285,12 +323,16 @@ public class CannonView extends SurfaceView
       target.end.y += targetUpdate;
 
       // if the blocker hit the top or bottom, reverse direction
-      if (blocker.start.y < 0 || blocker.end.y > screenHeight)
+      if (blocker.start.y < 0 || blocker.end.y > screenHeight) {
          blockerVelocity *= -1;
+         // play blocker top or bottom hit sound
+         soundPool.play(soundMap.get(BLOCKERTOUCH_SOUND_ID), 1,
+                 1, 1, 0, 1f);
+      }
 
       // if the target hit the top or bottom, reverse direction
       if (target.start.y < 0 || target.end.y > screenHeight)
-         targetVelocity *= -1;
+        targetVelocity *= -1;
 
       timeLeft -= interval; // subtract from time left
 
@@ -315,6 +357,12 @@ public class CannonView extends SurfaceView
       // move the cannonball to be inside the cannon
       cannonball.x = cannonballRadius; // align x-coordinate with cannon
       cannonball.y = screenHeight / 2; // centers ball vertically
+      for (int i = 0; i < tracker.length; ++i) {
+         tracker[i].start.x = cannonball.x;
+         tracker[i].start.y = cannonball.y;
+         tracker[i].end.x = cannonball.x;
+         tracker[i].end.y = cannonball.y;
+      }
 
       // get the x component of the total velocity
       cannonballVelocityX = (int) (cannonballSpeed * Math.sin(angle));
@@ -360,17 +408,22 @@ public class CannonView extends SurfaceView
    public void drawGameElements(Canvas canvas)
    {
       // clear the background
-      canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), 
-         backgroundPaint);
-      
+      canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(),
+              backgroundPaint);
+
       // display time remaining
       canvas.drawText(getResources().getString(
          R.string.time_remaining_format, timeLeft), 30, 50, textPaint);
 
       // if a cannonball is currently on the screen, draw it
-      if (cannonballOnScreen)
+      if (cannonballOnScreen) {
          canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius,
-            cannonballPaint);
+                 cannonballPaint);
+      }
+
+      for(int i = 0; i < tracker.length; i++) {
+         canvas.drawLine(tracker[i].start.x, tracker[i].start.y, tracker[i].end.x, tracker[i].end.y, trackerPaint);
+      }
 
       // draw the cannon barrel
       canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
