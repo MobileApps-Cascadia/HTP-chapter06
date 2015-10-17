@@ -336,7 +336,7 @@ public class CannonView extends SurfaceView
          soundPool.play(soundMap.get(BLOP_SOUND_ID), 1,
                  1, 1, 0, 1f);
       }
-      
+
       timeLeft -= interval; // subtract from time left
 
       // if the timer reached zero
