@@ -8,8 +8,12 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.media.AudioManager;
@@ -21,6 +25,8 @@ import android.util.SparseIntArray;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+
+import java.io.IOException;
 
 public class CannonView extends SurfaceView
    implements SurfaceHolder.Callback
@@ -79,6 +85,7 @@ public class CannonView extends SurfaceView
    private static final int TARGET_SOUND_ID = 0;
    private static final int CANNON_SOUND_ID = 1;
    private static final int BLOCKER_SOUND_ID = 2;
+   private static final int BOUNCE_SOUND_ID = 2;
    private SoundPool soundPool; // plays sound effects
    private SparseIntArray soundMap; // maps IDs to SoundPool
 
@@ -90,9 +97,12 @@ public class CannonView extends SurfaceView
    private Paint targetPaint; // Paint used to draw the target
    private Paint backgroundPaint; // Paint used to clear the drawing area
 
+   private Bitmap cannonBitmap;
+   private Bitmap cannonballBitmap;
+   private Matrix cannonMatrix;
+
    // public constructor
-   public CannonView(Context context, AttributeSet attrs)
-   {
+   public CannonView(Context context, AttributeSet attrs) throws IOException {
       super(context, attrs); // call superclass constructor
       activity = (Activity) context; // store reference to MainActivity
 
@@ -118,6 +128,8 @@ public class CannonView extends SurfaceView
          soundPool.load(context, R.raw.cannon_fire, 1));
       soundMap.put(BLOCKER_SOUND_ID,
          soundPool.load(context, R.raw.blocker_hit, 1));
+      soundMap.put(BOUNCE_SOUND_ID,
+              soundPool.load(context, R.raw.bounce, 1));
 
       // construct Paints for drawing text, cannonball, cannon,
       // blocker and target; these are configured in method onSizeChanged
@@ -127,7 +139,22 @@ public class CannonView extends SurfaceView
       blockerPaint = new Paint();
       targetPaint = new Paint();
       backgroundPaint = new Paint();
+
+      AssetManager assets = activity.getAssets();
+      cannonballBitmap = loadBitmap(assets, "cannonball.jpg");
+      cannonBitmap = loadBitmap(assets, "cannon.jpg");
+      cannonMatrix = new Matrix();
+      cannonMatrix.setRotate(0);
    } // end CannonView constructor
+
+   private Bitmap loadBitmap(AssetManager assets, String filename) {
+      try {
+         return BitmapFactory.decodeStream(assets.open(filename));
+      } catch (java.io.IOException e) {
+         Log.e("tag", e.toString());
+         return null;
+      }
+   }
 
    // called by surfaceChanged when the size of the SurfaceView changes,
    // such as when it's first added to the View hierarchy
@@ -285,8 +312,11 @@ public class CannonView extends SurfaceView
       target.end.y += targetUpdate;
 
       // if the blocker hit the top or bottom, reverse direction
-      if (blocker.start.y < 0 || blocker.end.y > screenHeight)
+      if (blocker.start.y < 0 || blocker.end.y > screenHeight) {
          blockerVelocity *= -1;
+         soundPool.play(soundMap.get(BOUNCE_SOUND_ID), 1,
+                 1, 1, 0, 1f);
+      }
 
       // if the target hit the top or bottom, reverse direction
       if (target.start.y < 0 || target.end.y > screenHeight)
@@ -311,9 +341,10 @@ public class CannonView extends SurfaceView
          return; // do nothing
 
       double angle = alignCannon(event); // get the cannon barrel's angle
+      cannonMatrix.setRotate((float) angle, 50, 50);
 
       // move the cannonball to be inside the cannon
-      cannonball.x = cannonballRadius; // align x-coordinate with cannon
+      cannonball.x = cannonballRadius + 10; // align x-coordinate with cannon
       cannonball.y = screenHeight / 2; // centers ball vertically
 
       // get the x component of the total velocity
@@ -331,7 +362,6 @@ public class CannonView extends SurfaceView
    // aligns the cannon in response to a user touch
    public double alignCannon(MotionEvent event)
    {
-      // get the location of the touch in this view
       Point touchPoint = new Point((int) event.getX(), (int) event.getY());
 
       // compute the touch's distance from center of the screen
@@ -367,18 +397,8 @@ public class CannonView extends SurfaceView
       canvas.drawText(getResources().getString(
          R.string.time_remaining_format, timeLeft), 30, 50, textPaint);
 
-      // if a cannonball is currently on the screen, draw it
-      if (cannonballOnScreen)
-         canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius,
-            cannonballPaint);
-
-      // draw the cannon barrel
-      canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
-         cannonPaint);
-
-      // draw the cannon base
-      canvas.drawCircle(0, (int) screenHeight / 2,
-         (int) cannonBaseRadius, cannonPaint);
+      drawCannon(canvas);
+      drawCannonball(canvas);
 
       // draw the blocker
       canvas.drawLine(blocker.start.x, blocker.start.y, blocker.end.x,
@@ -410,6 +430,35 @@ public class CannonView extends SurfaceView
          currentPoint.y += pieceLength;
       }
    } // end method drawGameElements
+
+   private void drawCannonball(Canvas canvas) {
+      // if a cannonball is currently on the screen, draw it
+      if (cannonballOnScreen) {
+         final Paint p = new Paint();
+         p.setAlpha(255);
+         canvas.drawBitmap(cannonballBitmap,
+                 cannonball.x - cannonballRadius,
+                 cannonball.y - cannonballRadius,
+                 p);
+      }
+   }
+
+   private void drawCannon(Canvas canvas) {
+      final Paint p = new Paint();
+      p.setAlpha(255);
+      canvas.drawBitmap(cannonBitmap, 0, screenHeight/2, p);
+      // Matrix matrix = new Matrix();
+      // matrix.setRotate(mRotation, source.getWidth()/2, source.getHeight()/2);
+      // canvas.drawBitmap(source, matrix, new Paint());
+
+      // canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
+      //    cannonPaint);
+
+      // // draw the cannon base
+      // canvas.drawCircle(0, (int) screenHeight / 2,
+      //   (int) cannonBaseRadius, cannonPaint);
+
+   }
 
    // display an AlertDialog when the game ends
    private void showGameOverDialog(final int messageId)
