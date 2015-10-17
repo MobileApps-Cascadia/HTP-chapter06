@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.media.AudioManager;
@@ -29,7 +30,7 @@ public class CannonView extends SurfaceView
 
    private CannonThread cannonThread; // controls the game loop
    private Activity activity; // to display Game Over dialog in GUI thread
-   private boolean dialogIsDisplayed = false;   
+   private boolean dialogIsDisplayed = false;
                
    // constants for game play
    public static final int TARGET_PIECES = 7; // sections in the target
@@ -67,6 +68,7 @@ public class CannonView extends SurfaceView
    private int cannonballVelocityX; // cannonball's x velocity
    private int cannonballVelocityY; // cannonball's y velocity
    private boolean cannonballOnScreen; // whether cannonball on the screen
+   private boolean hitBlocker; // bool flag to determine if the cannonball hit the blocker
    private int cannonballRadius; // cannonball's radius
    private int cannonballSpeed; // cannonball's speed
    private int cannonBaseRadius; // cannon base's radius
@@ -119,7 +121,7 @@ public class CannonView extends SurfaceView
       soundMap.put(CANNON_SOUND_ID,
          soundPool.load(context, R.raw.cannon_fire, 1));
       soundMap.put(BLOCKER_SOUND_ID,
-         soundPool.load(context, R.raw.blocker_hit, 1));
+              soundPool.load(context, R.raw.blocker_hit, 1));
       soundMap.put(BOUNCE_SOUND_ID,
               soundPool.load(context, R.raw.bounce, 1));
 
@@ -130,7 +132,8 @@ public class CannonView extends SurfaceView
       cannonballPaint = new Paint();
       blockerPaint = new Paint(); 
       targetPaint = new Paint(); 
-      backgroundPaint = new Paint(); 
+      backgroundPaint = new Paint();
+      dashPaint = new Paint();
    } // end CannonView constructor
 
    // called by surfaceChanged when the size of the SurfaceView changes,
@@ -177,6 +180,11 @@ public class CannonView extends SurfaceView
       blockerPaint.setStrokeWidth(lineWidth); // set line thickness      
       targetPaint.setStrokeWidth(lineWidth); // set line thickness       
       backgroundPaint.setColor(Color.WHITE); // set background color
+
+      // configure dash paint object
+      dashPaint.setStrokeWidth(lineWidth / 10); // set thickness to 1/10 that of blocker and targets
+      dashPaint.setColor(Color.BLACK); // set color
+      dashPaint.setPathEffect(new DashPathEffect(new float[] {screenHeight / 50, screenHeight / 50}, 10));
 
       newGame(); // set up and start a new game
    } // end method onSizeChanged
@@ -227,6 +235,7 @@ public class CannonView extends SurfaceView
             cannonball.y + cannonballRadius > blocker.start.y &&
             cannonball.y - cannonballRadius < blocker.end.y)
          {
+            hitBlocker = true; // set hitBlocker flag to true
             cannonballVelocityX *= -1; // reverse cannonball's direction
             timeLeft -= MISS_PENALTY; // penalize the user
 
@@ -318,6 +327,8 @@ public class CannonView extends SurfaceView
       if (cannonballOnScreen) // if a cannonball is already on the screen
          return; // do nothing
 
+      hitBlocker = false; // cannonball was just fired, can't have hit the blocker
+
       double angle = alignCannon(event); // get the cannon barrel's angle
 
       // move the cannonball to be inside the cannon
@@ -373,12 +384,17 @@ public class CannonView extends SurfaceView
       
       // display time remaining
       canvas.drawText(getResources().getString(
-         R.string.time_remaining_format, timeLeft), 30, 50, textPaint);
+              R.string.time_remaining_format, timeLeft), 30, 50, textPaint);
 
       // if a cannonball is currently on the screen, draw it
-      if (cannonballOnScreen)
-         canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius,
-            cannonballPaint);
+      if (cannonballOnScreen) {
+         canvas.drawCircle(cannonball.x, cannonball.y, cannonballRadius, cannonballPaint);
+
+         if (!hitBlocker) {
+            // draw the dashed line behind the cannonball
+            canvas.drawLine(barrelEnd.x, barrelEnd.y, cannonball.x, cannonball.y, dashPaint);
+         }
+      }
 
       // draw the cannon barrel
       canvas.drawLine(0, screenHeight / 2, barrelEnd.x, barrelEnd.y,
