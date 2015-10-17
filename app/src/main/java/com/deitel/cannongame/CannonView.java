@@ -72,7 +72,7 @@ public class CannonView extends SurfaceView
    private boolean cannonballOnScreen; // whether cannonball on the screen
    private int cannonballRadius; // cannonball's radius
    private int cannonballSpeed; // cannonball's speed
-   private int cannonBaseRadius; // cannon base's radius
+   //private int cannonBaseRadius; // cannon base's radius
    private int cannonLength; // cannon barrel's length
    private Point barrelEnd; // the endpoint of the cannon's barrel
    private int screenWidth; 
@@ -91,8 +91,8 @@ public class CannonView extends SurfaceView
 
    // Paint variables used when drawing each item on the screen
    private Paint textPaint; // Paint used to draw text
-   private Paint cannonballPaint; // Paint used to draw the cannonball
-   private Paint cannonPaint; // Paint used to draw the cannon
+   // private Paint cannonballPaint; // Paint used to draw the cannonball
+   //private Paint cannonPaint; // Paint used to draw the cannon
    private Paint blockerPaint; // Paint used to draw the blocker
    private Paint targetPaint; // Paint used to draw the target
    private Paint backgroundPaint; // Paint used to clear the drawing area
@@ -139,8 +139,8 @@ public class CannonView extends SurfaceView
       // construct Paints for drawing text, cannonball, cannon,
       // blocker and target; these are configured in method onSizeChanged
       textPaint = new Paint(); 
-      cannonPaint = new Paint(); 
-      cannonballPaint = new Paint();
+      // cannonPaint = new Paint();
+      // cannonballPaint = new Paint();
       blockerPaint = new Paint(); 
       targetPaint = new Paint(); 
       backgroundPaint = new Paint();
@@ -156,7 +156,7 @@ public class CannonView extends SurfaceView
 
       screenWidth = w; // store CannonView's width
       screenHeight = h; // store CannonView's height
-      cannonBaseRadius = h / 18; // cannon base radius 1/18 screen height
+      //cannonBaseRadius = h / 18; // cannon base radius 1/18 screen height
       cannonLength = w / 8; // cannon length 1/8 screen width
 
       cannonballRadius = w / 36; // cannonball radius 1/36 screen width
@@ -187,7 +187,7 @@ public class CannonView extends SurfaceView
       // configure Paint objects for drawing game elements
       textPaint.setTextSize(w / 20); // text size 1/20 of screen width
       textPaint.setAntiAlias(true); // smoothes the text
-      cannonPaint.setStrokeWidth(lineWidth * 1.5f); // set line thickness
+      //cannonPaint.setStrokeWidth(lineWidth * 1.5f); // set line thickness
       blockerPaint.setStrokeWidth(lineWidth); // set line thickness      
       targetPaint.setStrokeWidth(lineWidth); // set line thickness       
       backgroundPaint.setColor(Color.WHITE); // set background color
@@ -196,7 +196,7 @@ public class CannonView extends SurfaceView
       linePaint.setStrokeWidth(lineWidth / 4);
       linePaint.setPathEffect(new DashPathEffect(new float[]{10, 20}, 0));
 
-      int cannonHeight = (int) (cannonLength / 4) * 3;
+      int cannonHeight =  (cannonLength / 4) * 3;
 
       // create cannon bitmap
       cannonBitmap = createScaledBitmap(cannonHeight, cannonLength, R.drawable.cannon);
@@ -477,9 +477,13 @@ public class CannonView extends SurfaceView
                   new AlertDialog.Builder(getActivity());
                builder.setTitle(getResources().getString(messageId));
 
+               // display icon accordingly
+               int iconID = (messageId == R.string.win) ? R.drawable.win_image : R.drawable.lose_image;
+               builder.setIcon(getResources().getDrawable(iconID));
+
                // display number of shots fired and total time elapsed
                builder.setMessage(getResources().getString(
-                  R.string.results_format, shotsFired, totalElapsedTime));
+                       R.string.results_format, shotsFired, totalElapsedTime));
                builder.setPositiveButton(R.string.reset_game,
                   new DialogInterface.OnClickListener()
                   {
@@ -515,9 +519,9 @@ public class CannonView extends SurfaceView
    {
       if (cannonThread != null)
          cannonThread.setRunning(false); // tell thread to terminate
-   } 
+   }
 
-   // releases resources; called by CannonGameFragment's onDestroy method 
+   // releases resources; called by CannonGameFragment's onDestroy method
    public void releaseResources()
    {
       soundPool.release(); // release all resources used by the SoundPool
@@ -589,8 +593,7 @@ public class CannonView extends SurfaceView
       Bitmap tempBitmap = BitmapFactory.decodeResource(getResources(), resID);
 
       // scaled it to the proper size
-      Bitmap scaledBitmap = Bitmap.createScaledBitmap(tempBitmap, width, width, true);
-      return scaledBitmap;
+      return Bitmap.createScaledBitmap(tempBitmap, width, height, true);
    }
 
    // Thread subclass to control the game loop
