@@ -3,17 +3,27 @@
 package com.deitel.cannongame;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 
 public class MainActivity extends Activity
 {
+   private CannonGameFragment cannonGameFragment;
+
    // called when the app first launches
    @Override
    public void onCreate(Bundle savedInstanceState)
    {
       super.onCreate(savedInstanceState); // call super's onCreate method
       setContentView(R.layout.activity_main); // inflate the layout
-   } 
+
+      cannonGameFragment = (CannonGameFragment)
+              getFragmentManager().findFragmentById(R.id.cannonGameFragment);
+
+   }
+
 } // end class MainActivity
 
 /*********************************************************************************
