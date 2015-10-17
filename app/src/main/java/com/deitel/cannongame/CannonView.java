@@ -85,6 +85,7 @@ public class CannonView extends SurfaceView
    private static final int APPLAUSE_SOUND_ID = 3;
    private static final int BOING_SOUND_ID = 4;
    private static final int BOUNCE_SOUND_ID = 5;
+   private static final int BLOP_SOUND_ID = 6;
 
    private SoundPool soundPool; // plays sound effects
    private SparseIntArray soundMap; // maps IDs to SoundPool
@@ -122,7 +123,7 @@ public class CannonView extends SurfaceView
       soundPool = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
 
       // create Map of sounds and pre-load sounds
-      soundMap = new SparseIntArray(6); // create new HashMap
+      soundMap = new SparseIntArray(7); // create new HashMap
       soundMap.put(TARGET_SOUND_ID,
          soundPool.load(context, R.raw.target_hit, 1));
       soundMap.put(CANNON_SOUND_ID,
@@ -134,6 +135,8 @@ public class CannonView extends SurfaceView
       soundMap.put(BOING_SOUND_ID,
               soundPool.load(context, R.raw.boing, 1));
       soundMap.put(BOUNCE_SOUND_ID,
+              soundPool.load(context, R.raw.bounce, 1));
+      soundMap.put(BLOP_SOUND_ID,
               soundPool.load(context, R.raw.bounce, 1));
 
       // construct Paints for drawing text, cannonball, cannon,
@@ -326,9 +329,14 @@ public class CannonView extends SurfaceView
                  1, 1, 0, 1f);
       }
       // if the target hit the top or bottom, reverse direction
-      if (target.start.y < 0 || target.end.y > screenHeight)
+      if (target.start.y < 0 || target.end.y > screenHeight) {
          targetVelocity *= -1;
 
+         // play blop sound
+         soundPool.play(soundMap.get(BLOP_SOUND_ID), 1,
+                 1, 1, 0, 1f);
+      }
+      
       timeLeft -= interval; // subtract from time left
 
       // if the timer reached zero
